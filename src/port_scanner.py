@@ -45,7 +45,7 @@ def tcp_syn_scan(target_host: str, ports: list[int]) -> list[tuple[int, str]]:
                 open_ports.append((port, service))
 
                 rst_packet = IP(dst=target_host)/TCP(sport=SOURCE_PORT, dport=port, flags="R")
-                send(rst_packet)  
+                send(rst_packet)
     
     return open_ports
 
