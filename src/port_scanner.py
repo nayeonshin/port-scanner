@@ -41,11 +41,11 @@ def tcp_syn_scan(target_host: str, ports: list[int]) -> list[tuple[int, str]]:
             is_syn_ack = response.haslayer(TCP) and response.getlayer(TCP).flags & 0x12
             
             if is_syn_ack:
-                rst_packet = IP(dst=target_host)/TCP(sport=SOURCE_PORT, dport=port, flags="R")
-                send(rst_packet)
-
                 service = get_service_name(port)
                 open_ports.append((port, service))
+
+                rst_packet = IP(dst=target_host)/TCP(sport=SOURCE_PORT, dport=port, flags="R")
+                send(rst_packet)  
     
     return open_ports
 
