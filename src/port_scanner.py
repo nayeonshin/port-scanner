@@ -26,7 +26,6 @@ def tcp_syn_scan(target_host: str, ports: list[int]) -> list[tuple[int, str]]:
         
         return service
 
-    SOURCE_PORT = 12345
     open_ports = []
 
     for port in ports:
@@ -34,7 +33,7 @@ def tcp_syn_scan(target_host: str, ports: list[int]) -> list[tuple[int, str]]:
         if not is_open_port:
             continue
         
-        syn_packet = IP(dst=target_host)/TCP(sport=SOURCE_PORT, dport=port, flags="S")
+        syn_packet = IP(dst=target_host)/TCP(dport=port, flags="S")
         response = sr1(syn_packet, timeout=1, verbose=0)
 
         if response:
@@ -44,7 +43,7 @@ def tcp_syn_scan(target_host: str, ports: list[int]) -> list[tuple[int, str]]:
                 service = get_service_name(port)
                 open_ports.append((port, service))
 
-                rst_packet = IP(dst=target_host)/TCP(sport=SOURCE_PORT, dport=port, flags="R")
+                rst_packet = IP(dst=target_host)/TCP(dport=port, flags="R")
                 send(rst_packet)
     
     return open_ports
