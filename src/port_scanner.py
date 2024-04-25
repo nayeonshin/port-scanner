@@ -1,4 +1,5 @@
 from scapy.all import ICMP, IP, TCP, send, sr1
+import random
 import socket
 
 
@@ -47,6 +48,30 @@ def tcp_syn_scan(target_host: str, ports: list[int]) -> list[tuple[int, str]]:
                 send(rst_packet)
     
     return open_ports
+
+
+def scan_ports(mode: str, order: str, ports: str) -> None:
+    # TODO: input validation
+    ALL_PORT_COUNT = 65536
+    KNOWN_PORT_COUNT = 1024
+
+    modes_to_functions = {
+        "connect": None,  # TODO
+        "syn": tcp_syn_scan,
+        "udp": None
+    }
+    scan = modes_to_functions.get(mode)
+
+    if not scan:
+        raise NotImplementedError(f"{mode} scan is not implemented yet.")
+    
+    port_count = ALL_PORT_COUNT if ports == "all" else KNOWN_PORT_COUNT
+    ports_to_scan = list(range(port_count))
+
+    if order == "random":
+        random.suffle(ports_to_scan)
+
+    scan(None, ports_to_scan)  # TODO: target host
 
 
 def main():
