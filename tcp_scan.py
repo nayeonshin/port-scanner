@@ -53,7 +53,35 @@ def tcp_connect(host, port):
                     print("error")
         return False
 
-def udp_scan()
+def udp_scan(host, port):
+    ip_packet = IP(dst = host)
+    tcp_packet = TCP(dport = port, flags="S")
+    final_packet = ip_packet/tcp_packet
+    response = sr1(final_packet, timeout=5)
+
+    if response is not None:
+        if response.haslayer(TCP):
+            if response.getlayer(TCP).flags == 0x12:
+                new_tcp_packet = TCP(sport=response.dport, dport=response.sport, flags="R")
+                new_packet = ip_packet/new_tcp_packet
+                send(new_packet, verbose=0)
+                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                try:
+                    s.connect((host, port))
+                    s.send(b"GET / HTTP/1.1\r\nHost: " + host.encode() + b"\r\n\r\n")
+                    s.settimeout(5)
+                    banner = s.recv(1024)
+                    print("Port {port} is open")
+                    s.close()
+                    if banner:
+                        data = banner.decode().strip()
+                        print(data)
+                        return data
+                except socket.timeout:
+                    print("Port {port} is filtered")
+                except ConnectionRefusedError:
+                    print("Port {port} is closed")
+            return False
 
 
 
