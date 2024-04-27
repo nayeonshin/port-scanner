@@ -122,7 +122,7 @@ def scan_ports(target_host: str, mode: str, order: str, ports: str) -> None:
     modes_to_functions = {
         "connect": None,  # TODO
         "syn": tcp_syn_scan,
-        "udp": None
+        "udp": None  # TODO
     }
     scan = modes_to_functions.get(mode)
 
