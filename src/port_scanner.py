@@ -1,11 +1,12 @@
 from scapy.all import ICMP, IP, TCP, send, sr1
 import random
 import socket
-import sys  # TODO: use argparse
+import argparse
+import sys 
 
 
 def check_is_alive_host(target_host: str) -> bool:
-    icmp_echo_request = IP(dst=target_host)/ICMP()
+    icmp_echo_request = IP(dst=target_host) / ICMP()
     icmp_echo_reply = sr1(icmp_echo_request, timeout=1, verbose=0)
     return bool(icmp_echo_reply)
 
@@ -32,13 +33,10 @@ def tcp_connect_scan(host, port):
                     if banner:
                         data = banner.decode().strip()
                         print(data)
-                        return data
+                        return [True, data]
                 except ConnectionRefusedError:
                     print("error")
-        return False
-    
-    # Question - why do we return False in the end?
-    # TODO: params - target_host & ports
+        return [False, 0]
 
 
 def tcp_syn_scan(target_host: str, ports: list[int]) -> list[tuple[int, str]]:
@@ -48,15 +46,15 @@ def tcp_syn_scan(target_host: str, ports: list[int]) -> list[tuple[int, str]]:
                 s.connect((target_host, port))
             except (socket.error, OSError):
                 return False
-        
+
         return True
-    
+
     def get_service_name(port: int) -> str:
         try:
             service = socket.getservbyport(port)
         except OSError:
             service = "unknown"
-        
+
         return service
 
     open_ports = []
@@ -65,20 +63,20 @@ def tcp_syn_scan(target_host: str, ports: list[int]) -> list[tuple[int, str]]:
         is_open_port = check_is_open_port(port)
         if not is_open_port:
             continue
-        
-        syn_packet = IP(dst=target_host)/TCP(dport=port, flags="S")
+
+        syn_packet = IP(dst=target_host) / TCP(dport=port, flags="S")
         response = sr1(syn_packet, timeout=1, verbose=0)
 
         if response:
             is_syn_ack = response.haslayer(TCP) and response.getlayer(TCP).flags & 0x12
-            
+
             if is_syn_ack:
                 service = get_service_name(port)
                 open_ports.append((port, service))
 
-                rst_packet = IP(dst=target_host)/TCP(dport=port, flags="R")
+                rst_packet = IP(dst=target_host) / TCP(dport=port, flags="R")
                 send(rst_packet)
-    
+
     return open_ports
 
 
@@ -105,12 +103,29 @@ def udp_scan(host, port):
                     if banner:
                         data = banner.decode().strip()
                         print(data)
-                        return data
+                        return [True,data]
                 except socket.timeout:
                     print("Port {port} is filtered")
                 except ConnectionRefusedError:
                     print("Port {port} is closed")
-            return False
+            return [False,0]
+
+def get_open_ports(target: str, mode: str, order: str, ports: str):
+    open_ports = []
+    banners={}
+    if ports == 'all':
+        ports_range = list(range(1, 65535))
+    elif ports == 'known':
+        ports_range = list(range(1, 1023))
+    for port in ports_range:
+        if mode == 'connect':
+            if tcp_connect_scan(target, port)[0]:
+                open_ports.append(port)
+                banners[port] = (tcp_connect_scan(target, port)[1])
+        if mode == 'udp':
+            if udp_scan(target, port):
+                open_ports.append(port)
+    return open_ports
 
 
 def scan_ports(target_host: str, mode: str, order: str, ports: str) -> None:
@@ -129,7 +144,7 @@ def scan_ports(target_host: str, mode: str, order: str, ports: str) -> None:
     if not scan:
         # TODO: capitalize
         raise NotImplementedError(f"{mode} scan is not implemented yet.")
-    
+
     port_count = ALL_PORT_COUNT if ports == "all" else KNOWN_PORT_COUNT
     ports_to_scan = list(range(port_count))
 
@@ -140,13 +155,22 @@ def scan_ports(target_host: str, mode: str, order: str, ports: str) -> None:
 
 
 def main():
-    if len(sys.argv) < 3:
-        print("Usage: python3 port_scanner.py [-options] target")
-        sys.exit(1)
-
-    options = sys.argv[1]
-    target = sys.argv[-1]
-
+    #Usage example: python3 port_scanner.py glasgow.smith.edu -mode connect -order random -ports known
+    #parse information from the command
+    parser = argparse.ArgumentParser()
+    parser.add_argument('target', type=str, help='Target IP address')
+    parser.add_argument('-mode', type=str, choices=['connect', 'syn', 'udp'], default='connect',
+                        help='Scanning mode[connect/syn/udp](default=connect)')
+    parser.add_argument('-order', type=str, choices=['order','random'], default='order',
+                        help='Order of Ports Scanning[order/random](default=order)')
+    parser.add_argument('-ports', type=str, choices=['all', 'known'], default='all',
+                        help='Scan Ports Range[all/known](default=all)')
+    args = parser.parse_args()
+    target = args.target
+    mode = args.mode
+    order = args.order
+    ports = args.ports
+    #Convert target to IP address
     try:
         ip_address = socket.gethostbyname(target)
     except socket.gaierror:
@@ -162,7 +186,6 @@ def main():
             sys.exit(1)
     else:
         target_ip = target
-
 
 if __name__ == "__main__":
     main()
