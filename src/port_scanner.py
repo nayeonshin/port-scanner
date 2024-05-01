@@ -80,28 +80,17 @@ def tcp_syn_scan(target_host: str, ports: list[int]) -> list[tuple[int, str]]:
     return open_ports
 
 def udp_scan(host, port):
-    ip_packet = IP(dst = host)
-    tcp_packet = TCP(dport = port, flags="S")
-    final_packet = ip_packet/tcp_packet
-    response = sr1(final_packet, timeout=5)
-
-    if response is not None:
-        if response.haslayer(TCP):
-            if response.getlayer(TCP).flags == 0x12:
-                new_tcp_packet = TCP(sport=response.dport, dport=response.sport, flags="R")
-                new_packet = ip_packet/new_tcp_packet
-                send(new_packet, verbose=0)
-                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                try:
-                    s.connect((host, port))
-                    s.send(b"GET / HTTP/1.1\r\nHost: " + host.encode() + b"\r\n\r\n")
-                    s.settimeout(3)
-                    return True
-                except socket.timeout:
-                    return False
-                except ConnectionRefusedError:
-                    return False
-            return False
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect((host, port))
+        s.send(b"GET / HTTP/1.1\r\nHost: " + host.encode() + b"\r\n\r\n")
+        s.settimeout(3)
+        return True
+    except socket.timeout:
+        return False
+    except ConnectionRefusedError:
+        return False
+    return False
 
 def get_open_ports(target: str, mode: str, order: str, ports: str):
     open_ports = []
