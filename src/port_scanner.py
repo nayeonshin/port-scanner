@@ -79,7 +79,6 @@ def tcp_syn_scan(target_host: str, ports: list[int]) -> list[tuple[int, str]]:
 
     return open_ports
 
-
 def udp_scan(host, port):
     ip_packet = IP(dst = host)
     tcp_packet = TCP(dport = port, flags="S")
@@ -96,19 +95,13 @@ def udp_scan(host, port):
                 try:
                     s.connect((host, port))
                     s.send(b"GET / HTTP/1.1\r\nHost: " + host.encode() + b"\r\n\r\n")
-                    s.settimeout(5)
-                    banner = s.recv(1024)
-                    print("Port {port} is open")
-                    s.close()
-                    if banner:
-                        data = banner.decode().strip()
-                        print(data)
-                        return [True,data]
+                    s.settimeout(3)
+                    return True
                 except socket.timeout:
-                    print("Port {port} is filtered")
+                    return False
                 except ConnectionRefusedError:
-                    print("Port {port} is closed")
-            return [False,0]
+                    return False
+            return False
 
 def get_open_ports(target: str, mode: str, order: str, ports: str):
     open_ports = []
