@@ -110,7 +110,8 @@ def get_open_ports(target: str, mode: str, order: str, ports: str):
     return open_ports
 
 
-def scan_ports(target_host: str, mode: str, order: str, ports: str) -> None:
+def scan_ports(target_host: str, mode: str, order: str, ports: str) -> list:
+    # TODO: return type hint
     # TODO: group params (too many params)
     # TODO: input validation
     ALL_PORT_COUNT = 65536
@@ -133,7 +134,8 @@ def scan_ports(target_host: str, mode: str, order: str, ports: str) -> None:
     if order == "random":
         random.suffle(ports_to_scan)
 
-    scan(target_host, ports_to_scan)
+    open_ports = scan(target_host, ports_to_scan)
+    return open_ports
 
 
 def main():
