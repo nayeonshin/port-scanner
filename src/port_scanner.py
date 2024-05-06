@@ -22,46 +22,54 @@ def get_service_name(port: int) -> str:
     return service
 
 
-def tcp_connect_scan(host: str, ports: list[int]):
-    def tcp_connect_if_open(host, port) -> tuple[bool, str | None]:
+def tcp_connect_scan(host: str, ports: list[int]) -> tuple[list, dict]:
+    def scan(host, port) -> str | None:  # TODO: is banner a string?
         ip_packet = IP(dst=host)
-        tcp_packet = TCP(dport=port, flags="S")
-        final_packet = ip_packet / tcp_packet
-        response = sr1(final_packet, timeout=5)
+        syn_packet = ip_packet / TCP(dport=port, flags="S")
+        response = sr1(syn_packet, timeout=5)
 
-        if response is not None:
-            if response.haslayer(TCP):
-                if response.getlayer(TCP).flags == 0x12:
-                    new_tcp_packet = TCP(sport=response.dport, dport=response.sport, flags="R")
-                    new_packet = ip_packet / new_tcp_packet
-                    send(new_packet, verbose=0)
-                    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    try:
-                        s.connect((host, port))
-                        s.send(b"GET / HTTP/1.1\r\nHost: " + host.encode() + b"\r\n\r\n")
-                        banner = s.recv(1024)
-                        print(f"Port {port} is open")
-                        s.close()
-                        if banner:
-                            data = banner.decode().strip()
-                            print(data)
-                            return True, data
-                    except ConnectionRefusedError:
-                        print("error")
-            return False, None
+        if response:
+            # TODO: make is_syn_ack a function?
+            is_syn_ack = response.haslayer(TCP) and response.getlayer(TCP).flags & 0x12
+
+            if is_syn_ack:
+                rst_tcp_packet = TCP(sport=response.dport, dport=response.sport, flags="R")
+                rst_packet = ip_packet / rst_tcp_packet
+                send(rst_packet, verbose=0)
+
+                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                try:
+                    s.connect((host, port))
+                    s.send(b"GET / HTTP/1.1\r\nHost: " + host.encode() + b"\r\n\r\n")
+                    banner = s.recv(1024)
+                    print(f"Port {port} is open")
+                    s.close()
+
+                    if banner:
+                        data = banner.decode().strip()
+                        print(data)  # TODO: question - should we print this here or in main()?
+                        return data  # TODO: initially, we had a boolean. was it to indicate whether banner existed?
+                except ConnectionRefusedError:
+                    print("error")
+
+            return None
+        # TODO: question - do we also return None if no response?
 
     open_ports = []
     banners = {}
+
     is_alive_host = check_is_alive_host(host)
     if not is_alive_host:
-        return [open_ports, banners]
+        return open_ports, banners
 
     for port in ports:
-        if tcp_connect_if_open(host, port):
-            if tcp_connect_if_open(host, port)[0]:
-                service = get_service_name(port)
-                open_ports.append((port, service))
-                banners[port] = (tcp_connect_if_open(host, port)[1])
+        banner = scan(host, port)
+
+        if banner:
+            service = get_service_name(port)
+            open_ports.append((port, service))
+            banners[port] = banner
+
     return open_ports, banners
 
 
