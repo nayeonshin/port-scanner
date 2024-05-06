@@ -7,20 +7,23 @@ import argparse
 import sys
 
 
+def check_is_alive_host(target_host: str) -> bool:
+    icmp_echo_request = IP(dst=target_host) / ICMP()
+    icmp_echo_reply = sr1(icmp_echo_request, timeout=1, verbose=0)
+    return bool(icmp_echo_reply)
+
+
+def get_service_name(port: int) -> str:
+    try:
+        service = socket.getservbyport(port)
+    except OSError:
+        service = "unknown"
+
+    return service
+
+
 def tcp_connect(host: str, ports: list[int]):
-    def check_is_alive_host(host: str) -> bool:
-        icmp_echo_request = IP(dst=host) / ICMP()
-        icmp_echo_reply = sr1(icmp_echo_request, timeout=1, verbose=0)
-        return bool(icmp_echo_reply)
-
-    def get_service_name(port: int) -> str:
-        try:
-            service = socket.getservbyport(port)
-        except OSError:
-            service = "unknown"
-
-        return service
-    def tcp_connect_if_open(host, port) -> [bool, str]:
+    def tcp_connect_if_open(host, port) -> tuple[bool, str | None]:
         ip_packet = IP(dst=host)
         tcp_packet = TCP(dport=port, flags="S")
         final_packet = ip_packet / tcp_packet
@@ -42,10 +45,10 @@ def tcp_connect(host: str, ports: list[int]):
                         if banner:
                             data = banner.decode().strip()
                             print(data)
-                            return [True, data]
+                            return True, data
                     except ConnectionRefusedError:
                         print("error")
-            return [False, 0]
+            return False, None
 
     open_ports = []
     banners = {}
@@ -63,19 +66,6 @@ def tcp_connect(host: str, ports: list[int]):
 
 
 def tcp_syn_scan(target_host: str, ports: list[int]) -> list[tuple[int, str]]:
-    def check_is_alive_host(target_host: str) -> bool:
-        icmp_echo_request = IP(dst=target_host) / ICMP()
-        icmp_echo_reply = sr1(icmp_echo_request, timeout=1, verbose=0)
-        return bool(icmp_echo_reply)
-
-    def get_service_name(port: int) -> str:
-        try:
-            service = socket.getservbyport(port)
-        except OSError:
-            service = "unknown"
-
-        return service
-
     open_ports = []
 
     is_alive_host = check_is_alive_host(target_host)
@@ -100,18 +90,6 @@ def tcp_syn_scan(target_host: str, ports: list[int]) -> list[tuple[int, str]]:
 
 
 def udp_scan(host: str, ports: list[int]) -> list[tuple[int, str]]:
-    def check_is_alive_host(host: str) -> bool:
-        icmp_echo_request = IP(dst=host) / ICMP()
-        icmp_echo_reply = sr1(icmp_echo_request, timeout=1, verbose=0)
-        return bool(icmp_echo_reply)
-    def get_service_name(port: int) -> str:
-        try:
-            service = socket.getservbyport(port)
-        except OSError:
-            service = "unknown"
-
-        return service
-
     def if_port_open(host: str, port: int) -> bool:
         udp_packet = sr1(IP(dst=host) / UDP(sport=port, dport=port), timeout=2, verbose=0)
         if udp_packet == None:
