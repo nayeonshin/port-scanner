@@ -22,7 +22,7 @@ def get_service_name(port: int) -> str:
     return service
 
 
-def tcp_connect(host: str, ports: list[int]):
+def tcp_connect_scan(host: str, ports: list[int]):
     def tcp_connect_if_open(host, port) -> tuple[bool, str | None]:
         ip_packet = IP(dst=host)
         tcp_packet = TCP(dport=port, flags="S")
@@ -83,6 +83,7 @@ def tcp_syn_scan(target_host: str, ports: list[int]) -> list[tuple[int, str]]:
                 service = get_service_name(port)
                 open_ports.append((port, service))
 
+                # TODO: question - Is this necessary?
                 rst_packet = IP(dst=target_host) / TCP(dport=port, flags="R")
                 send(rst_packet)
 
@@ -130,7 +131,7 @@ def scan_ports(target_host: str, mode: str, order: str, ports: str) -> list:
     KNOWN_PORT_COUNT = 23
 
     modes_to_functions = {
-        "connect": tcp_connect,
+        "connect": tcp_connect_scan,
         "syn": tcp_syn_scan,
         "udp": udp_scan
     }
