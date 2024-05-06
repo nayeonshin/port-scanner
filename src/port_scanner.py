@@ -57,8 +57,8 @@ def tcp_connect(host: str, ports: list[int]):
         return [open_ports, banners]
 
     for port in ports:
-        if tcp_connect_if_open(host, port) != None:
-            if tcp_connect_if_open(host, port)[0] == True:
+        if tcp_connect_if_open(host, port):
+            if tcp_connect_if_open(host, port)[0]:
                 service = get_service_name(port)
                 open_ports.append((port, service))
                 banners[port] = (tcp_connect_if_open(host, port)[1])
@@ -147,7 +147,7 @@ def scan_ports(target_host: str, mode: str, order: str, ports: str) -> list:
         random.shuffle(ports_to_scan)
 
     open_ports = scan(target_host, ports_to_scan)
-    print(open_ports)
+    print(open_ports)  # TODO: print in main()
     #print(f"Not shown: {port_count - len(open_ports)} closed ports")
     #print("Port     State Service")
     # for port_tuple in open_ports:
