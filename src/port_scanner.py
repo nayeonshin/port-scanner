@@ -178,6 +178,7 @@ def scan_ports(target_host: str, mode: str, order: str, ports: str) -> list:
             print(f"Not shown: {port_count - len(open_ports[0])} closed ports")
             print("Port     State Service")  # TODO: automatic alignment
 
+            # TODO: what is the modulo for?
             for port_number, service_name in open_ports[0]:  # TODO: question - why open_ports[0]?
                 if port_number % 100 == port_number:
                     space = "   "
