@@ -99,31 +99,33 @@ def tcp_syn_scan(target_host: str, ports: list[int]) -> list[tuple[int, str]]:
 
 
 def udp_scan(host: str, ports: list[int]) -> list[tuple[int, str]]:
-    def if_port_open(host: str, port: int) -> bool:
+    def check_is_open_port(port: int) -> bool:
         udp_packet = sr1(IP(dst=host) / UDP(sport=port, dport=port), timeout=2, verbose=0)
-        if udp_packet == None:
+        if udp_packet:
+            return True
+
+        if udp_packet.haslayer(ICMP):
+            print(port, "Closed")  # TODO: question - do we want to print here or in main()?
+            return False
+        elif udp_packet.haslayer(UDP):
+            print(port, "Open / filtered")  # TODO: same q
             return True
         else:
-            if udp_packet.haslayer(ICMP):
-                print(port, "Closed")
-                return False
-            elif udp_packet.haslayer(UDP):
-                print(port, "Open / filtered")
-                return True
-            else:
-                print(port, "Unknown")
-                print(udp_packet.summary())
-                return False
+            print(port, "Unknown")  # TODO: same q
+            print(udp_packet.summary())
+            return False
 
     open_ports = []
+
     is_alive_host = check_is_alive_host(host)
     if not is_alive_host:
         return open_ports
 
     for port in ports:
-        if if_port_open(host, port):
+        if check_is_open_port(port):
             service = get_service_name(port)
             open_ports.append((port, service))
+
     return open_ports
 
 
@@ -131,12 +133,14 @@ def scan_ports(target_host: str, mode: str, order: str, ports: str) -> list:
     # TODO: return type hint
     # TODO: group params (too many params)
     # TODO: input validation
-    start_time = datetime.now()
-    start = time.time()
-    print(f"Staring port scan           at {start_time}")
-    print(f"Interesting ports on {target_host}")
     ALL_PORT_COUNT = 65536
     KNOWN_PORT_COUNT = 23
+
+    start_time = datetime.now()
+    start = time.time()
+    # TODO: can use automatic alignment somehow instead of manual one
+    print(f"Staring port scan           at {start_time}")
+    print(f"Interesting ports on {target_host}")
 
     modes_to_functions = {
         "connect": tcp_connect_scan,
@@ -146,7 +150,6 @@ def scan_ports(target_host: str, mode: str, order: str, ports: str) -> list:
     scan = modes_to_functions.get(mode)
 
     if not scan:
-        # TODO: capitalize
         raise NotImplementedError(f"{mode} scan is not implemented yet.")
 
     port_count = ALL_PORT_COUNT if ports == "all" else KNOWN_PORT_COUNT
@@ -168,31 +171,26 @@ def scan_ports(target_host: str, mode: str, order: str, ports: str) -> list:
     #     else:
     #         space = " "
 
-    if mode == "connect":
-        print(f"Not shown: {port_count - len(open_ports[0])} closed ports")
-        print("Port     State Service")
-        for p in open_ports[0]:
-            port_n = p[0]
-            if port_n % 100 == port_n:
-                space = "   "
-            elif port_n % 1000 == port_n:
-                space = "  "
-            else:
-                space = " "
-            service = p[1]
+    # TODO: question - do we want to print here or in main()? Or in a different function?
+    match mode:
+        case "connect":
+            # TODO: question - why len(open_ports[0])?
+            print(f"Not shown: {port_count - len(open_ports[0])} closed ports")
+            print("Port     State Service")  # TODO: automatic alignment
 
-            print(f"{port_n}/tcp{space}open{'  '}{service}{'   '}")
-            print(f"banner:{open_ports[1][port_n]}")
-    if mode == "syn":
-        for p in open_ports:
-            port_n = p[0]
-            service = p[1]
-            print(f"{port_n}/tcp{space}open{'  '}{service}{'   '}")
-    if mode =="udp":
-        for p in open_ports:
-            port_n = p[0]
-            service = p[1]
-            print(f"{port_n}/udp{space}open{'  '}{service}{'   '}")
+            for port_number, service_name in open_ports[0]:  # TODO: question - why open_ports[0]?
+                if port_number % 100 == port_number:
+                    space = "   "
+                elif port_number % 1000 == port_number:
+                    space = "  "
+                else:
+                    space = " "
+
+                print(f"{port_number}/tcp{space}open{'  '}{service_name}{'   '}")
+                print(f"banner:{open_ports[1][port_number]}")  # TODO: question - why open_ports[1]?
+        case "syn" | "udp":
+            for port_number, service_name in open_ports:
+                print(f"{port_number}/{mode}{space}open{'  '}{service_name}{'   '}")
 
     print(f"scan done! {len(ports)} IP address scanned in {time.time() - start} seconds.")
     return open_ports
