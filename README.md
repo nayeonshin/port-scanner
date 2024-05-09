@@ -5,7 +5,7 @@
 ## List of all files included in the project
 ```
 .
-├── src                     # Source files (alternatively `lib` or `app`)
+├── src
 │   └── port_scanner.py
 ├── Pipfile
 ├── Pipfile.lock
