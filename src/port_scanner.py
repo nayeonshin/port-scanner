@@ -1,10 +1,11 @@
-from scapy.all import ICMP, IP, TCP, send, sr1, UDP
-import random
-import time
-import socket
-from datetime import datetime
 import argparse
+import random
+import socket
 import sys
+import time
+from datetime import datetime
+
+from scapy.all import ICMP, IP, TCP, UDP, send, sr1
 
 
 def check_is_alive_host(target_host: str) -> bool:
@@ -33,7 +34,9 @@ def tcp_connect_scan(host: str, ports: list[int]) -> tuple[list, dict]:
             is_syn_ack = response.haslayer(TCP) and response.getlayer(TCP).flags & 0x12
 
             if is_syn_ack:
-                rst_tcp_packet = TCP(sport=response.dport, dport=response.sport, flags="R")
+                rst_tcp_packet = TCP(
+                    sport=response.dport, dport=response.sport, flags="R"
+                )
                 rst_packet = ip_packet / rst_tcp_packet
                 send(rst_packet, verbose=0)
 
@@ -47,7 +50,9 @@ def tcp_connect_scan(host: str, ports: list[int]) -> tuple[list, dict]:
 
                     if banner:
                         data = banner.decode().strip()
-                        print(data)  # TODO: question - should we print this here or in main()?
+                        print(
+                            data
+                        )  # TODO: question - should we print this here or in main()?
                         return data  # TODO: initially, we had a boolean. was it to indicate whether banner existed?
                 except ConnectionRefusedError:
                     print("error")
@@ -76,6 +81,8 @@ def tcp_connect_scan(host: str, ports: list[int]) -> tuple[list, dict]:
 def tcp_syn_scan(target_host: str, ports: list[int]) -> list[tuple[int, str]]:
     open_ports = []
 
+    # TODO: Better to decouple - this part is the starting point for all the scan methods
+    # Check the below in main()
     is_alive_host = check_is_alive_host(target_host)
     if not is_alive_host:
         return open_ports
@@ -88,7 +95,7 @@ def tcp_syn_scan(target_host: str, ports: list[int]) -> list[tuple[int, str]]:
             is_syn_ack = response.haslayer(TCP) and response.getlayer(TCP).flags & 0x12
 
             if is_syn_ack:
-                service = get_service_name(port)
+                service = get_service_name(port)  # TODO: decouple this out
                 open_ports.append((port, service))
 
                 # TODO: question - Is this necessary?
@@ -100,12 +107,16 @@ def tcp_syn_scan(target_host: str, ports: list[int]) -> list[tuple[int, str]]:
 
 def udp_scan(host: str, ports: list[int]) -> list[tuple[int, str]]:
     def check_is_open_port(port: int) -> bool:
-        udp_packet = sr1(IP(dst=host) / UDP(sport=port, dport=port), timeout=2, verbose=0)
+        udp_packet = sr1(
+            IP(dst=host) / UDP(sport=port, dport=port), timeout=2, verbose=0
+        )
         if udp_packet:
             return True
 
         if udp_packet.haslayer(ICMP):
-            print(port, "Closed")  # TODO: question - do we want to print here or in main()?
+            print(
+                port, "Closed"
+            )  # TODO: question - do we want to print here or in main()?
             return False
         elif udp_packet.haslayer(UDP):
             print(port, "Open / filtered")  # TODO: same q
@@ -145,7 +156,7 @@ def scan_ports(target_host: str, mode: str, order: str, ports: str) -> list:
     modes_to_functions = {
         "connect": tcp_connect_scan,
         "syn": tcp_syn_scan,
-        "udp": udp_scan
+        "udp": udp_scan,
     }
     scan = modes_to_functions.get(mode)
 
@@ -160,8 +171,8 @@ def scan_ports(target_host: str, mode: str, order: str, ports: str) -> list:
 
     open_ports = scan(target_host, ports_to_scan)
     print(open_ports)  # TODO: print in main()
-    #print(f"Not shown: {port_count - len(open_ports)} closed ports")
-    #print("Port     State Service")
+    # print(f"Not shown: {port_count - len(open_ports)} closed ports")
+    # print("Port     State Service")
     # for port_tuple in open_ports:
     #     #print(port_tuple)
     #     if port_tuple[0] % 100 == port_tuple[0]:
@@ -179,7 +190,9 @@ def scan_ports(target_host: str, mode: str, order: str, ports: str) -> list:
             print("Port     State Service")  # TODO: automatic alignment
 
             # TODO: what is the modulo for?
-            for port_number, service_name in open_ports[0]:  # TODO: question - why open_ports[0]?
+            for port_number, service_name in open_ports[
+                0
+            ]:  # TODO: question - why open_ports[0]?
                 if port_number % 100 == port_number:
                     space = "   "
                 elif port_number % 1000 == port_number:
@@ -188,12 +201,16 @@ def scan_ports(target_host: str, mode: str, order: str, ports: str) -> list:
                     space = " "
 
                 print(f"{port_number}/tcp{space}open{'  '}{service_name}{'   '}")
-                print(f"banner:{open_ports[1][port_number]}")  # TODO: question - why open_ports[1]?
+                print(
+                    f"banner:{open_ports[1][port_number]}"
+                )  # TODO: question - why open_ports[1]?
         case "syn" | "udp":
             for port_number, service_name in open_ports:
                 print(f"{port_number}/{mode}{space}open{'  '}{service_name}{'   '}")
 
-    print(f"scan done! {len(ports)} IP address scanned in {time.time() - start} seconds.")
+    print(
+        f"scan done! {len(ports)} IP address scanned in {time.time() - start} seconds."
+    )
     return open_ports
 
 
@@ -201,13 +218,28 @@ def main():
     # Usage example: python3 port_scanner.py glasgow.smith.edu -mode connect -order random -ports known
     # parse information from the command
     parser = argparse.ArgumentParser()
-    parser.add_argument('target', type=str, help='Target IP address')
-    parser.add_argument('-mode', type=str, choices=['connect', 'syn', 'udp'], default='connect',
-                        help='Scanning mode[connect/syn/udp](default=connect)')
-    parser.add_argument('-order', type=str, choices=['order', 'random'], default='order',
-                        help='Order of Ports Scanning[order/random](default=order)')
-    parser.add_argument('-ports', type=str, choices=['all', 'known'], default='all',
-                        help='Scan Ports Range[all/known](default=all)')
+    parser.add_argument("target", type=str, help="Target IP address")
+    parser.add_argument(
+        "-mode",
+        type=str,
+        choices=["connect", "syn", "udp"],
+        default="connect",
+        help="Scanning mode[connect/syn/udp](default=connect)",
+    )
+    parser.add_argument(
+        "-order",
+        type=str,
+        choices=["order", "random"],
+        default="order",
+        help="Order of Ports Scanning[order/random](default=order)",
+    )
+    parser.add_argument(
+        "-ports",
+        type=str,
+        choices=["all", "known"],
+        default="all",
+        help="Scan Ports Range[all/known](default=all)",
+    )
     args = parser.parse_args()
     target = args.target
     mode = args.mode
@@ -224,7 +256,9 @@ def main():
         print("Error: Target is not a valid hostname or IP address.")
         sys.exit(1)
 
-    scan_ports(target_ip, mode, order, ports)  # Call the scan_ports function with target_ip
+    scan_ports(
+        target_ip, mode, order, ports
+    )  # Call the scan_ports function with target_ip
 
 
 if __name__ == "__main__":
