@@ -63,10 +63,6 @@ def tcp_connect_scan(host: str, ports: list[int]) -> tuple[list, dict]:
     open_ports = []
     banners = {}
 
-    is_alive_host = check_is_alive_host(host)
-    if not is_alive_host:
-        return open_ports, banners
-
     for port in ports:
         banner = scan(host, port)
 
@@ -80,12 +76,6 @@ def tcp_connect_scan(host: str, ports: list[int]) -> tuple[list, dict]:
 
 def tcp_syn_scan(target_host: str, ports: list[int]) -> list[tuple[int, str]]:
     open_ports = []
-
-    # TODO: Better to decouple - this part is the starting point for all the scan methods
-    # Check the below in main()
-    is_alive_host = check_is_alive_host(target_host)
-    if not is_alive_host:
-        return open_ports
 
     for port in ports:
         syn_packet = IP(dst=target_host) / TCP(dport=port, flags="S")
@@ -127,10 +117,6 @@ def udp_scan(host: str, ports: list[int]) -> list[tuple[int, str]]:
             return False
 
     open_ports = []
-
-    is_alive_host = check_is_alive_host(host)
-    if not is_alive_host:
-        return open_ports
 
     for port in ports:
         if check_is_open_port(port):
@@ -217,30 +203,31 @@ def scan_ports(target_host: str, mode: str, order: str, ports: str) -> list:
 def main():
     # Usage example: python3 port_scanner.py glasgow.smith.edu -mode connect -order random -ports known
     # parse information from the command
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="Port Scanner")
     parser.add_argument("target", type=str, help="Target IP address")
     parser.add_argument(
         "-mode",
         type=str,
         choices=["connect", "syn", "udp"],
         default="connect",
-        help="Scanning mode[connect/syn/udp](default=connect)",
+        help="Scanning mode [connect/syn/udp] (default: %(default)s)",
     )
     parser.add_argument(
         "-order",
         type=str,
         choices=["order", "random"],
         default="order",
-        help="Order of Ports Scanning[order/random](default=order)",
+        help="Order of port scanning [order/random] (default: %(default)s)",
     )
     parser.add_argument(
         "-ports",
         type=str,
         choices=["all", "known"],
         default="all",
-        help="Scan Ports Range[all/known](default=all)",
+        help="Scan Ports Range [all/known] (default: %(default)s)",
     )
     args = parser.parse_args()
+    
     target = args.target
     mode = args.mode
     order = args.order
