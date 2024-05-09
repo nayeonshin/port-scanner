@@ -6,41 +6,44 @@ from datetime import datetime
 import argparse
 import sys
 
-
 def check_is_alive_host(target_host: str) -> bool:
     icmp_echo_request = IP(dst=target_host) / ICMP()
     icmp_echo_reply = sr1(icmp_echo_request, timeout=1, verbose=0)
     return bool(icmp_echo_reply)
 
-def tcp_connect(host: str, ports: list[int]):
-    def tcp_connect_if_open(host, port) -> [bool, str]:
-        final_packet = IP(dst=host) / TCP(dport=port, flags="S")
-        response = sr1(final_packet, timeout=5)
+def tcp_connect(host: str, ports: list[int]) -> (list, dict):
+    def tcp_connect_if_open(host, port) -> [bool, dict]:
+        #Create a socket object with a timeout of 0.2 seconds
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(0.2)
+        try:
+            # Attempt to connect to the target port
+            s.connect((host, port))
+            s.send(b"GET / HTTP/1.1\r\nHost: " + host.encode() + b"\r\n\r\n")
+            banner = s.recv(1024)
+            s.close()
+            if banner:
+                # If banner information is received, return True and the banner
+                data = banner.decode().strip()
+                return [True, data]
+        except (socket.timeout, ConnectionRefusedError, OSError) as e:
+            if isinstance(e, socket.timeout):
+                pass
+            elif isinstance(e, ConnectionRefusedError):
+                pass
+            elif isinstance(e, OSError) and e.errno == 49:
+                pass
+            else:
+                pass
+        # Return False and None if port is closed or unreachable
+        return [False, None]
 
-        if response is not None:
-            if response.haslayer(TCP):
-                if response.getlayer(TCP).flags == 0x12:
-                    new_packet = IP(dst=host) / TCP(sport=response.dport, dport=response.sport, flags="R")
-                    send(new_packet, verbose=0)
-                    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    try:
-                        s.connect((host, port))
-                        s.send(b"GET / HTTP/1.1\r\nHost: " + host.encode() + b"\r\n\r\n")
-                        banner = s.recv(1024)
-                        print(f"Port {port} is open")
-                        s.close()
-                        if banner:
-                            data = banner.decode().strip()
-                            print(data)
-                            return [True, data]
-                    except ConnectionRefusedError:
-                        print("error")
-            return [False, None]
-
+    # Initialize lists to store open ports and banners
     open_ports = []
     banners = {}
 
     for port in ports:
+        # Check if the port is open and retrieve banner information if available
         if tcp_connect_if_open(host, port) != None:
             if tcp_connect_if_open(host, port)[0] == True:
                 open_ports.append(port)
@@ -48,14 +51,14 @@ def tcp_connect(host: str, ports: list[int]):
     return open_ports, banners
 
 
-def tcp_syn_scan(target_host: str, ports: list[int]) -> list[tuple[int, str]]:
-
+def tcp_syn_scan(target_host: str, ports: list[int]) -> list[int, str]:
     open_ports = []
 
     for port in ports:
+        # Send a SYN packet to the port and wait for a response, timeout=0.2
         syn_packet = IP(dst=target_host) / TCP(dport=port, flags="S")
-        response = sr1(syn_packet, timeout=1, verbose=0)
-
+        response = sr1(syn_packet, timeout=0.2, verbose=0)
+        # Check for response
         if response:
             is_syn_ack = response.haslayer(TCP) and response.getlayer(TCP).flags & 0x12
 
@@ -63,19 +66,20 @@ def tcp_syn_scan(target_host: str, ports: list[int]) -> list[tuple[int, str]]:
                 open_ports.append(port)
 
                 rst_packet = IP(dst=target_host) / TCP(dport=port, flags="R")
-                send(rst_packet)
+                send(rst_packet, verbose=0)
 
     return open_ports
 
 
-def udp_scan(host: str, ports: list[int]) -> list[tuple[int, str]]:
+def udp_scan(host: str, ports: list[int]) -> list[int]:
     def if_port_close(host: str, port: int) -> bool:
-        udp_packet = sr1(IP(dst=host) / UDP(sport=port, dport=port), timeout=2, verbose=0)
+        # Send a UDP packet to the port and wait for a response, timeout=0.2
+        udp_packet = sr1(IP(dst=host) / UDP(sport=port, dport=port), timeout=0.2, verbose=0)
         if udp_packet == None:
             return False
         else:
+            # If an ICMP packet with code 3 (Port Unreachable) is received, the port is closed
             if udp_packet.haslayer(ICMP) and int(udp_packet.getlayer(ICMP).code) == 3:
-                print(port, "Closed")
                 return True
             else:
                 return False
@@ -124,7 +128,7 @@ def main():
     print(f"Staring port scan           at {start_time}")
     print(f"Interesting ports on {target_ip}")
     ALL_PORT_COUNT = 65536
-    KNOWN_PORT_COUNT = 100
+    KNOWN_PORT_COUNT = 1024
 
     port_count = ALL_PORT_COUNT if ports == "all" else KNOWN_PORT_COUNT
     ports_to_scan = list(range(port_count))
@@ -140,7 +144,6 @@ def main():
     scan = modes_to_functions.get(mode)
 
     if not scan:
-        # TODO: capitalize
         raise NotImplementedError(f"{mode} scan is not implemented yet.")
 
     port_count = ALL_PORT_COUNT if ports == "all" else KNOWN_PORT_COUNT
@@ -152,7 +155,7 @@ def main():
     open_ports = scan(target_ip, ports_to_scan)
     if mode == "connect":
         print(f"Not shown: {port_count - len(open_ports[0])} closed ports")
-        print("Port     State Service")
+        print("PORT     STATE SERVICE")
         for port_n in open_ports[0]:
             if port_n % 100 == port_n:
                 space = "   "
@@ -165,7 +168,7 @@ def main():
             print(f"banner:{open_ports[1][port_n]}")
     if mode == "syn":
         print(f"Not shown: {port_count - len(open_ports)} closed ports")
-        print("Port     State Service")
+        print("PORT     STATE SERVICE")
         for port_n in open_ports:
             if port_n % 100 == port_n:
                 space = "   "
@@ -176,7 +179,7 @@ def main():
             print(f"{port_n}/tcp{space}open{'  '}{socket.getservbyport(port_n)}{'   '}")
     if mode =="udp":
         print(f"Not shown: {len(open_ports)} closed ports")
-        print("Port     State Service")
+        print("PORT     STATE SERVICE")
         for port_n in open_ports:
             if port_n % 100 == port_n:
                 space = "   "
@@ -188,9 +191,8 @@ def main():
 
     print(f"scan done! 1 IP address scanned in {time.time() - start} seconds.")
 
- 
+
 
 
 if __name__ == "__main__":
     main()
-
