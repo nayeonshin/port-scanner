@@ -199,6 +199,13 @@ def scan_ports(target_host: str, mode: str, order: str, ports: str) -> list:
     )
     return open_ports
 
+def resolve_target(target: str) -> str | None:
+    try:
+        target_ip_address = socket.gethostbyname(target)
+        return target_ip_address
+    except socket.gaierror as e:
+        print(f"Error: Target is not a valid hostname or IP address.")
+        sys.exit(1)
 
 def main():
     # Usage example: python3 port_scanner.py glasgow.smith.edu -mode connect -order random -ports known
@@ -227,26 +234,14 @@ def main():
         help="Scan Ports Range [all/known] (default: %(default)s)",
     )
     args = parser.parse_args()
-    
+
     target = args.target
     mode = args.mode
     order = args.order
     ports = args.ports
 
-    target_ip = None  # Initialize target_ip with None
-
-    # Convert target to IP address
-    try:
-        ip_address = socket.gethostbyname(target)
-        target_ip = ip_address  # Assign target_ip after resolving the hostname
-    except socket.gaierror:
-        print("Error: Target is not a valid hostname or IP address.")
-        sys.exit(1)
-
-    scan_ports(
-        target_ip, mode, order, ports
-    )  # Call the scan_ports function with target_ip
-
+    target_ip_address = resolve_target(target)
+    scan_ports(target_ip_address, mode, order, ports)
 
 if __name__ == "__main__":
     main()
