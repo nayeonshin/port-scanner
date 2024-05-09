@@ -1,4 +1,5 @@
 import argparse
+from dataclasses import dataclass
 import random
 import socket
 import sys
@@ -7,11 +8,12 @@ from datetime import datetime
 
 from scapy.all import ICMP, IP, TCP, UDP, send, sr1
 
-
-def check_is_alive_host(target_host: str) -> bool:
-    icmp_echo_request = IP(dst=target_host) / ICMP()
-    icmp_echo_reply = sr1(icmp_echo_request, timeout=1, verbose=0)
-    return bool(icmp_echo_reply)
+@dataclass
+class ScanConfig:
+    target_ip_address: str
+    mode: str
+    order: str
+    ports: str
 
 
 def get_service_name(port: int) -> str:
@@ -126,15 +128,22 @@ def udp_scan(host: str, ports: list[int]) -> list[tuple[int, str]]:
     return open_ports
 
 
-def scan_ports(target_host: str, mode: str, order: str, ports: str) -> list:
+def scan_ports(config: ScanConfig) -> list:
     # TODO: return type hint
     # TODO: group params (too many params)
     # TODO: input validation
     ALL_PORT_COUNT = 65536
     KNOWN_PORT_COUNT = 23
 
+    # TODO: question - why need to track time?
     start_time = datetime.now()
     start = time.time()
+
+    target_host = config.target_ip
+    mode = config.mode
+    order = config.order
+    ports = config.ports
+
     # TODO: can use automatic alignment somehow instead of manual one
     print(f"Staring port scan           at {start_time}")
     print(f"Interesting ports on {target_host}")
@@ -203,9 +212,14 @@ def resolve_target(target: str) -> str | None:
     try:
         target_ip_address = socket.gethostbyname(target)
         return target_ip_address
-    except socket.gaierror as e:
-        print(f"Error: Target is not a valid hostname or IP address.")
+    except socket.gaierror:
+        print("Error: Target is not a valid hostname or IP address.")
         sys.exit(1)
+
+def check_is_alive_host(target_host: str) -> bool:
+    icmp_echo_request = IP(dst=target_host) / ICMP()
+    icmp_echo_reply = sr1(icmp_echo_request, timeout=1, verbose=0)
+    return bool(icmp_echo_reply)
 
 def main():
     # Usage example: python3 port_scanner.py glasgow.smith.edu -mode connect -order random -ports known
@@ -241,7 +255,18 @@ def main():
     ports = args.ports
 
     target_ip_address = resolve_target(target)
-    scan_ports(target_ip_address, mode, order, ports)
+    is_alive_host = check_is_alive_host(target_ip_address)
+    if not is_alive_host:
+        print("Target is not reachable.")
+        sys.exit(1)
+
+    config = ScanConfig(
+        target_ip_address=target_ip_address,
+        mode=args.mode,
+        order=args.order,
+        ports=args.ports
+    )
+    scan_ports(config)
 
 if __name__ == "__main__":
     main()
