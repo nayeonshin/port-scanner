@@ -20,3 +20,16 @@ $ cd src
 # Example
 $ python3 port_scanner.py glasgow.smith.edu -mode connect -order random -ports known
 ```
+
+## One significant challenge and solution
+TODO
+
+## Each person's specific contributions to the project
+- Sophia:
+  - `tcp_connect()`
+  - `udp_scan()`
+  - Getting `argparse` options
+- Nayeon:
+  - `tcp_syn_scan()`
+  - Processing `argparse` options
+  - `check_is_alive_host()`

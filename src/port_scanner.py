@@ -7,6 +7,11 @@ import argparse
 import sys
 
 
+def check_is_alive_host(target_host: str) -> bool:
+    icmp_echo_request = IP(dst=target_host) / ICMP()
+    icmp_echo_reply = sr1(icmp_echo_request, timeout=1, verbose=0)
+    return bool(icmp_echo_reply)
+
 def tcp_connect(host: str, ports: list[int]):
     def tcp_connect_if_open(host, port) -> [bool, str]:
         final_packet = IP(dst=host) / TCP(dport=port, flags="S")
@@ -107,6 +112,11 @@ def main():
         target_ip = ip_address  # Assign target_ip after resolving the hostname
     except socket.gaierror:
         print("Error: Target is not a valid hostname or IP address.")
+        sys.exit(1)
+
+    is_alive_host = check_is_alive_host(target_ip)
+    if not is_alive_host:
+        print("Target is not reachable.")
         sys.exit(1)
 
     start_time = datetime.now()
