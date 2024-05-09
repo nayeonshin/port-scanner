@@ -3,12 +3,14 @@
 * Authors: Sophia Dai, Nayeon Shin
 
 ## List of all files included in the project
+```
 .
 ├── src                     # Source files (alternatively `lib` or `app`)
 │   └── port_scanner.py
 ├── Pipfile
 ├── Pipfile.lock
 └── README.md
+```
 
 ## Instructions on how to run the project
 ```bash
