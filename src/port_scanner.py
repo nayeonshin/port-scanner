@@ -96,6 +96,7 @@ def tcp_connect_scan(target_host: str, ports: list[int]) -> tuple[list, dict]:
     Returns:
         tuple[list, dict]: A tuple containing a list of open ports and a dictionary of banners.
     """
+
     def check_is_open_port(port) -> tuple[bool, dict | None]:
         # Create a socket object with a timeout of 0.2 seconds.
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -174,6 +175,7 @@ def udp_scan(target_host: str, ports: list[int]) -> list[int]:
     Returns:
         list[int]: A list of ports that are likely to be closed.
     """
+
     def check_is_closed(port: int) -> bool:
         # Send a UDP packet to the port and wait for a response, timeout=0.2.
         udp_packet = IP(dst=target_host) / UDP(sport=port, dport=port)
@@ -245,6 +247,7 @@ def print_ports(mode: str, port_count: int, ports: list | tuple[list, dict]) -> 
         port_count (int): The total number of ports that were considered for scanning.
         ports (list): A list of open ports or port banners.
     """
+
     def create_space(port_number: str) -> str:
         if port_number % 100 == port_number:
             return "   "
