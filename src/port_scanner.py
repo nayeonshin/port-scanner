@@ -99,30 +99,31 @@ def udp_scan(host: str, ports: list[int]) -> list[int]:
 def main():
     # Usage example: python3 port_scanner.py glasgow.smith.edu -mode connect -order random -ports known
     # parse information from the command
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="Port Scanner")
     parser.add_argument("target", type=str, help="Target IP address")
     parser.add_argument(
         "-mode",
         type=str,
         choices=["connect", "syn", "udp"],
         default="connect",
-        help="Scanning mode[connect/syn/udp](default=connect)",
+        help="Scanning mode [connect/syn/udp] (default: %(default)s)",
     )
     parser.add_argument(
         "-order",
         type=str,
         choices=["order", "random"],
         default="order",
-        help="Order of Ports Scanning[order/random](default=order)",
+        help="Order of port scanning [order/random] (default: %(default)s)",
     )
     parser.add_argument(
         "-ports",
         type=str,
         choices=["all", "known"],
         default="all",
-        help="Scan Ports Range[all/known](default=all)",
+        help="Scan Ports Range [all/known] (default: %(default)s)",
     )
     args = parser.parse_args()
+    
     target = args.target
     mode = args.mode
     order = args.order
