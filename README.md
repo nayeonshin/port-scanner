@@ -44,4 +44,8 @@ Regarding TCP SYN scan, we could not figure out why 53 is shown as open in our p
 
 ## Further improvements
 
-Since we were running out of time, we prioritized the functionality of our code to other aspects such as readability, reusability, and maintability. Hence, the code is not clean.
+- Debugging TCP SYN scan
+- Grouping functions into classes
+  - (static) `Utils` class for utility methods
+  - `Scanner` class with the 3 scanning methods (instead of using a dictionary)
+
