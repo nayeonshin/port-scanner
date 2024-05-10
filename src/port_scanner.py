@@ -18,8 +18,12 @@ class ScanConfig:
 
 
 def check_is_alive_host(target_host: str) -> bool:
+    """Check if the target host is alive (or reachable).
+    
+
+    """
     icmp_echo_request = IP(dst=target_host) / ICMP()
-    icmp_echo_reply = sr1(icmp_echo_request, timeout=1, verbose=0)
+    icmp_echo_reply = sr1(icmp_echo_request, timeout=0.2, verbose=0)
     return bool(icmp_echo_reply)
 
 
@@ -113,7 +117,7 @@ def udp_scan(target_host: str, ports: list[int]) -> list[int]:
 def print_messages(target_host: str) -> None:
     LINE_WIDTH = 100
 
-    current_time = datetime.now()
+    current_time = str(datetime.now())
     message = "Starting port scan"
     padding_width = LINE_WIDTH - (len(message) + len(current_time))
 
@@ -153,6 +157,14 @@ def scan_ports(config: ScanConfig) -> tuple[int, list]:
 
 
 def print_ports(mode: str, port_count: int, ports: list):
+    def create_space(port_number: str) -> str:
+        if port_number % 100 == port_number:
+            return "   "
+        elif port_number % 1000 == port_number:
+            return "  "
+        else:
+            return " "
+
     match mode:
         case "connect":
             open_ports, banners = ports
@@ -160,13 +172,7 @@ def print_ports(mode: str, port_count: int, ports: list):
             print("Port     State Service")
 
             for port_number in open_ports:
-                if port_number % 100 == port_number:
-                    space = "   "
-                elif port_number % 1000 == port_number:
-                    space = "  "
-                else:
-                    space = " "
-
+                space = create_space(port_number)
                 service_name = get_service_name(port_number)
                 print(f"{port_number}/tcp{space}open{'  '}{service_name}{'   '}")
                 print(f"banner:{banners[port_number]}")
@@ -179,6 +185,7 @@ def print_ports(mode: str, port_count: int, ports: list):
                 protocol = mode
 
             for port_number in ports:
+                space = create_space(port_number)
                 service_name = get_service_name(port_number)
                 print(
                     f"{port_number}/{protocol}{space}{status}{'  '}{service_name}{'   '}"
@@ -236,7 +243,7 @@ def main():
     )
     start_time = time.time()
     port_count, open_ports = scan_ports(config)
-    print_ports(mode=args.mode, port_count=port_count, open_ports=open_ports)
+    print_ports(mode=args.mode, port_count=port_count, ports=open_ports)
     current_time = time.time()
 
     print(f"scan done! 1 IP address scanned in {current_time - start_time} seconds.")
