@@ -1,19 +1,22 @@
-from scapy.all import ICMP, IP, TCP, send, sr1, UDP
-import random
-import time
-import socket
-from datetime import datetime
 import argparse
+import random
+import socket
 import sys
+import time
+from datetime import datetime
+
+from scapy.all import ICMP, IP, TCP, UDP, send, sr1
+
 
 def check_is_alive_host(target_host: str) -> bool:
     icmp_echo_request = IP(dst=target_host) / ICMP()
     icmp_echo_reply = sr1(icmp_echo_request, timeout=1, verbose=0)
     return bool(icmp_echo_reply)
 
+
 def tcp_connect(host: str, ports: list[int]) -> (list, dict):
     def tcp_connect_if_open(host, port) -> [bool, dict]:
-        #Create a socket object with a timeout of 0.2 seconds
+        # Create a socket object with a timeout of 0.2 seconds
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.settimeout(0.2)
         try:
@@ -47,7 +50,7 @@ def tcp_connect(host: str, ports: list[int]) -> (list, dict):
         if tcp_connect_if_open(host, port) != None:
             if tcp_connect_if_open(host, port)[0] == True:
                 open_ports.append(port)
-                banners[port] = (tcp_connect_if_open(host, port)[1])
+                banners[port] = tcp_connect_if_open(host, port)[1]
     return open_ports, banners
 
 
@@ -74,7 +77,9 @@ def tcp_syn_scan(target_host: str, ports: list[int]) -> list[int, str]:
 def udp_scan(host: str, ports: list[int]) -> list[int]:
     def if_port_close(host: str, port: int) -> bool:
         # Send a UDP packet to the port and wait for a response, timeout=0.2
-        udp_packet = sr1(IP(dst=host) / UDP(sport=port, dport=port), timeout=0.2, verbose=0)
+        udp_packet = sr1(
+            IP(dst=host) / UDP(sport=port, dport=port), timeout=0.2, verbose=0
+        )
         if udp_packet == None:
             return False
         else:
@@ -95,13 +100,28 @@ def main():
     # Usage example: python3 port_scanner.py glasgow.smith.edu -mode connect -order random -ports known
     # parse information from the command
     parser = argparse.ArgumentParser()
-    parser.add_argument('target', type=str, help='Target IP address')
-    parser.add_argument('-mode', type=str, choices=['connect', 'syn', 'udp'], default='connect',
-                        help='Scanning mode[connect/syn/udp](default=connect)')
-    parser.add_argument('-order', type=str, choices=['order', 'random'], default='order',
-                        help='Order of Ports Scanning[order/random](default=order)')
-    parser.add_argument('-ports', type=str, choices=['all', 'known'], default='all',
-                        help='Scan Ports Range[all/known](default=all)')
+    parser.add_argument("target", type=str, help="Target IP address")
+    parser.add_argument(
+        "-mode",
+        type=str,
+        choices=["connect", "syn", "udp"],
+        default="connect",
+        help="Scanning mode[connect/syn/udp](default=connect)",
+    )
+    parser.add_argument(
+        "-order",
+        type=str,
+        choices=["order", "random"],
+        default="order",
+        help="Order of Ports Scanning[order/random](default=order)",
+    )
+    parser.add_argument(
+        "-ports",
+        type=str,
+        choices=["all", "known"],
+        default="all",
+        help="Scan Ports Range[all/known](default=all)",
+    )
     args = parser.parse_args()
     target = args.target
     mode = args.mode
@@ -136,11 +156,7 @@ def main():
     if order == "random":
         random.shuffle(ports_to_scan)
 
-    modes_to_functions = {
-        "connect": tcp_connect,
-        "syn": tcp_syn_scan,
-        "udp": udp_scan
-    }
+    modes_to_functions = {"connect": tcp_connect, "syn": tcp_syn_scan, "udp": udp_scan}
     scan = modes_to_functions.get(mode)
 
     if not scan:
@@ -177,7 +193,7 @@ def main():
             else:
                 space = " "
             print(f"{port_n}/tcp{space}open{'  '}{socket.getservbyport(port_n)}{'   '}")
-    if mode =="udp":
+    if mode == "udp":
         print(f"Not shown: {len(open_ports)} closed ports")
         print("PORT     STATE SERVICE")
         for port_n in open_ports:
@@ -187,11 +203,11 @@ def main():
                 space = "  "
             else:
                 space = " "
-            print(f"{port_n}/udp{space}closed{' '}{socket.getservbyport(port_n)}{'   '}")
+            print(
+                f"{port_n}/udp{space}closed{' '}{socket.getservbyport(port_n)}{'   '}"
+            )
 
     print(f"scan done! 1 IP address scanned in {time.time() - start} seconds.")
-
-
 
 
 if __name__ == "__main__":
