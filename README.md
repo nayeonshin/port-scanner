@@ -48,4 +48,4 @@ Regarding TCP SYN scan, we could not figure out why 53 is shown as open in our p
 - Grouping functions into classes
   - (static) `Utils` class for utility methods
   - `Scanner` class with the 3 scanning methods (instead of using a dictionary)
-
+- Show a dot (.) on the screen for each port scanned to indicate progress
