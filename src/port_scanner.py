@@ -328,8 +328,8 @@ def main():
         order=args.order,
         ports=args.ports,
     )
-    port_count, ports = scan_ports(config)
-    print_ports(mode=args.mode, port_count=port_count, ports=ports)
+    port_count, scanned_ports = scan_ports(config)
+    print_ports(mode=args.mode, port_count=port_count, ports=scanned_ports)
 
     current_time = time.time()
 
