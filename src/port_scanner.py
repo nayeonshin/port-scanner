@@ -245,7 +245,7 @@ def print_ports(mode: str, port_count: int, ports: list | tuple[list, dict]) -> 
     Args:
         mode (str): The scanning mode used ('connect', 'syn', 'udp').
         port_count (int): The total number of ports that were considered for scanning.
-        ports (list): A list of open ports or port banners.
+        ports (list | tuple): A list of ports, or tuple of ports and banners.
     """
 
     def create_space(port_number: str) -> str:
