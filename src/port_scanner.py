@@ -17,10 +17,33 @@ class ScanConfig:
     ports: str
 
 
-def check_is_alive_host(target_host: str) -> bool:
-    """Check if the target host is alive (or reachable).
-    
+def resolve_target(target: str) -> str | None:
+    """
+    Resolve a hostname to an IP address.
 
+    Args:
+        target (str): The target hostname to resolve.
+
+    Returns:
+        str | None: The resolved IP address or None if resolution fails.
+    """
+    try:
+        target_ip_address = socket.gethostbyname(target)
+        return target_ip_address
+    except socket.gaierror:
+        print("Error: Target is not a valid hostname or IP address.")
+        sys.exit(1)
+
+
+def check_is_alive_host(target_host: str) -> bool:
+    """
+    Check if a host is alive by sending an ICMP echo request.
+
+    Args:
+        target_host (str): IP address or hostname of the target.
+
+    Returns:
+        bool: True if the host responds to the ping, False otherwise.
     """
     icmp_echo_request = IP(dst=target_host) / ICMP()
     icmp_echo_reply = sr1(icmp_echo_request, timeout=0.2, verbose=0)
@@ -28,6 +51,15 @@ def check_is_alive_host(target_host: str) -> bool:
 
 
 def get_service_name(port: int) -> str:
+    """
+    Retrieve the service name associated with a given port number.
+
+    Args:
+        port (int): The port number.
+
+    Returns:
+        str: The service name if known, otherwise 'unknown'.
+    """
     try:
         service = socket.getservbyport(port)
     except OSError:
@@ -36,8 +68,35 @@ def get_service_name(port: int) -> str:
     return service
 
 
+def print_messages(target_host: str) -> None:
+    """
+    Print initial messages for a port scanning session.
+
+    Args:
+        target_host (str): The target IP address.
+    """
+    LINE_WIDTH = 100
+
+    current_time = str(datetime.now())
+    message = "Starting port scan"
+    padding_width = LINE_WIDTH - (len(message) + len(current_time))
+
+    print(f"{message:<{padding_width}} at {current_time}")
+    print(f"Interesting ports on {target_host}")
+
+
 def tcp_connect_scan(target_host: str, ports: list[int]) -> tuple[list, dict]:
-    def check_is_open_port(port) -> tuple[bool, dict]:
+    """
+    Perform a TCP connect scan on a list of ports.
+
+    Args:
+        target_host (str): The target IP address.
+        ports (list[int]): A list of ports to scan.
+
+    Returns:
+        tuple[list, dict]: A tuple containing a list of open ports and a dictionary of banners.
+    """
+    def check_is_open_port(port) -> tuple[bool, dict | None]:
         # Create a socket object with a timeout of 0.2 seconds.
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.settimeout(0.2)
@@ -73,14 +132,25 @@ def tcp_connect_scan(target_host: str, ports: list[int]) -> tuple[list, dict]:
     return open_ports, banners
 
 
-def tcp_syn_scan(target_host: str, ports: list[int]) -> list[int, str]:
+def tcp_syn_scan(target_host: str, ports: list[int]) -> list[int]:
+    """
+    Perform a TCP SYN scan on a list of ports.
+
+    Args:
+        target_host (str): The target IP address.
+        ports (list[int]): A list of ports to scan.
+
+    Returns:
+        list[int]: A list of ports where a SYN/ACK was received.
+    """
     open_ports = []
 
     for port in ports:
-        # Send a SYN packet to the port and wait for a response, timeout=0.2
+        # Send a SYN packet to the port and wait for a response, timeout=0.2.
         syn_packet = IP(dst=target_host) / TCP(dport=port, flags="S")
         response = sr1(syn_packet, timeout=0.2, verbose=0)
-        # Check for response
+
+        # Check for response.
         if response:
             is_syn_ack = response.haslayer(TCP) and response.getlayer(TCP).flags & 0x12
 
@@ -94,6 +164,16 @@ def tcp_syn_scan(target_host: str, ports: list[int]) -> list[int, str]:
 
 
 def udp_scan(target_host: str, ports: list[int]) -> list[int]:
+    """
+    Perform a UDP scan on a list of ports.
+
+    Args:
+        target_host (str): The target IP address.
+        ports (list[int]): A list of ports to scan.
+
+    Returns:
+        list[int]: A list of ports that are likely to be closed.
+    """
     def check_is_closed(port: int) -> bool:
         # Send a UDP packet to the port and wait for a response, timeout=0.2.
         udp_packet = IP(dst=target_host) / UDP(sport=port, dport=port)
@@ -114,27 +194,26 @@ def udp_scan(target_host: str, ports: list[int]) -> list[int]:
     return closed_ports
 
 
-def print_messages(target_host: str) -> None:
-    LINE_WIDTH = 100
-
-    current_time = str(datetime.now())
-    message = "Starting port scan"
-    padding_width = LINE_WIDTH - (len(message) + len(current_time))
-
-    print(f"{message:<{padding_width}} at {current_time}")
-    print(f"Interesting ports on {target_host}")
-
-
 def scan_ports(config: ScanConfig) -> tuple[int, list]:
-    # TODO: return type hint
+    """
+    Conduct a port scan based on the configurations.
+
+    Args:
+        config (ScanConfig): A dataclass containing all configurations for the scan.
+
+    Returns:
+        tuple[int, list]: Total number of ports and a list of open or closed ports.
+    """
     ALL_PORT_COUNT = 65536
     KNOWN_PORT_COUNT = 1024
 
+    # Unpack dataclass arguments.
     target_host = config.target_ip_address
     mode = config.mode
     order = config.order
     ports = config.ports
 
+    # Get the function depending on the mode.
     modes_to_functions = {
         "connect": tcp_connect_scan,
         "syn": tcp_syn_scan,
@@ -152,11 +231,20 @@ def scan_ports(config: ScanConfig) -> tuple[int, list]:
     if order == "random":
         random.shuffle(ports_to_scan)
 
-    open_ports = scan(target_host, ports_to_scan)
-    return port_count, open_ports
+    # If UDP, these are closed ports. Otherwise, these are open ports.
+    ports = scan(target_host, ports_to_scan)
+    return port_count, ports
 
 
-def print_ports(mode: str, port_count: int, ports: list):
+def print_ports(mode: str, port_count: int, ports: list | tuple[list, dict]) -> None:
+    """
+    Print the results of a port scan.
+
+    Args:
+        mode (str): The scanning mode used ('connect', 'syn', 'udp').
+        port_count (int): The total number of ports that were considered for scanning.
+        ports (list): A list of open ports or port banners.
+    """
     def create_space(port_number: str) -> str:
         if port_number % 100 == port_number:
             return "   "
@@ -177,6 +265,7 @@ def print_ports(mode: str, port_count: int, ports: list):
                 print(f"{port_number}/tcp{space}open{'  '}{service_name}{'   '}")
                 print(f"banner:{banners[port_number]}")
         case "syn" | "udp":
+            # Get the status and protocol based on the mode.
             if mode == "syn":
                 status = "open"
                 protocol = "tcp"
@@ -192,18 +281,9 @@ def print_ports(mode: str, port_count: int, ports: list):
                 )
 
 
-def resolve_target(target: str) -> str | None:
-    try:
-        target_ip_address = socket.gethostbyname(target)
-        return target_ip_address
-    except socket.gaierror:
-        print("Error: Target is not a valid hostname or IP address.")
-        sys.exit(1)
-
-
 def main():
     # Usage example: python3 port_scanner.py glasgow.smith.edu -mode connect -order random -ports known
-    # Parse options from the command
+    # Parse the command options.
     parser = argparse.ArgumentParser(description="Port Scanner")
     parser.add_argument("target", type=str, help="Target IP address")
     parser.add_argument(
@@ -229,21 +309,25 @@ def main():
     )
     args = parser.parse_args()
 
+    # Check the host reachability.
     target_ip_address = resolve_target(args.target)
     is_alive_host = check_is_alive_host(target_ip_address)
     if not is_alive_host:
         print("Target is not reachable.")
         sys.exit(1)
 
+    start_time = time.time()
+
+    # Scan ports.
     config = ScanConfig(
         target_ip_address=target_ip_address,
         mode=args.mode,
         order=args.order,
         ports=args.ports,
     )
-    start_time = time.time()
     port_count, open_ports = scan_ports(config)
     print_ports(mode=args.mode, port_count=port_count, ports=open_ports)
+
     current_time = time.time()
 
     print(f"scan done! 1 IP address scanned in {current_time - start_time} seconds.")
