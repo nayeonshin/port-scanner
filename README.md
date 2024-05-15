@@ -1,5 +1,7 @@
 # Port Scanner
 
+Port scanner created from scratch without using ready-made tools like Nmap
+
 - Authors: Sophia Dai, Nayeon Shin
 
 ## List of all files included in the project
